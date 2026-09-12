@@ -107,9 +107,6 @@
     transform: rotate(-3deg);
     text-shadow: 1px 1px 0 #000;
   }
-  .names div::before { content: "✕ "; color: rgba(160,60,40,.7); }
-  .names .title { color: rgba(220,60,40,.6); margin-bottom: 4px; }
-  .names .title::before { content: ""; }
 
   /* ===== ČASOVAČ ===== */
   .timer {
@@ -402,8 +399,6 @@
     const box = $("names");
     box.innerHTML = "";
     if (game.names.length) {
-      const t = document.createElement("div"); t.className = "title"; t.textContent = "V cele:";
-      box.appendChild(t);
       game.names.forEach(n => { const d = document.createElement("div"); d.textContent = n; box.appendChild(d); });
     }
     const passed = (Date.now() - game.end) / 1000;
