@@ -388,6 +388,13 @@
   $("btnEnter").onclick = startGame;
   $("btnEnter2").onclick = startGame;
 
+  // Kláves K = skok na posledných 15 sekúnd (len u toho, kto ho stlačí)
+  document.addEventListener("keydown", e => {
+    if (e.key.toLowerCase() === "k" && game && lobby.hidden && !ended) {
+      game.end = Date.now() + 15000;
+    }
+  });
+
   if (game) { $("create").hidden = true; $("enter").hidden = false; }
 
   // ---------- zvuk (Web Audio, bez súborov) ----------
