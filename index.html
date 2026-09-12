@@ -437,7 +437,7 @@
   const ACROSS_Z = -CORR;           // stena oproti s časovačom a dverami
   // Cely sú v jednom rade vedľa seba. Miesto n má v rade pozíciu posOf(n);
   // ja sa vždy vykresľujem v strede (x=0), susedia relatívne ku mne.
-  function posOf(n) { return (n % 2 ? -1 : 1) * Math.ceil(n / 2); }
+  function posOf(n) { return n === 1 ? 0 : (n % 2 === 0 ? n / 2 : -(n - 1) / 2); }
   function slotX(n) { return (posOf(n) - posOf(mySlot || 1)) * CELL_W; }
 
   let renderer, scene, camera, clock, myBars, doorPivot, timerTex, timerCanvas, redLight;
@@ -629,7 +629,7 @@
   function setupControls() {
     const cv = $("gl");
     let dragging = false, lx = 0, ly = 0, locked = false;
-    cv.addEventListener("mousedown", e => { dragging = true; lx = e.clientX; ly = e.clientY; if (cv.requestPointerLock) cv.requestPointerLock(); });
+    cv.addEventListener("mousedown", e => { dragging = true; lx = e.clientX; ly = e.clientY; try { const r = cv.requestPointerLock && cv.requestPointerLock(); if (r && r.catch) r.catch(() => {}); } catch {} });
     document.addEventListener("pointerlockchange", () => { locked = document.pointerLockElement === cv; });
     document.addEventListener("mousemove", e => {
       if (locked) { look.yaw -= e.movementX * 0.0022; look.pitch -= e.movementY * 0.0022; }
