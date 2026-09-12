@@ -163,7 +163,7 @@
         <div class="link" id="link"></div>
         <button class="ghost" id="btnCopy">Kopírovať link</button>
         <div class="ok" id="copied" hidden>Skopírované ✓</div>
-        <div class="hint">Pošli link kamošom. Každý, kto ho otvorí, sa objaví ako postava v cele oproti a budete sa počuť. Odpočet aj koniec bežia všetkým naraz. Max. 8 hráčov.<br>
+        <div class="hint">Pošli link kamošom. Každý, kto ho otvorí, sa objaví ako postava v cele vedľa teba, za veľkým oknom, a budete sa počuť. Odpočet aj koniec bežia všetkým naraz. Max. 8 hráčov.<br>
         Ak majú súbor u seba, stačí im vložiť kód: <b id="codeOnly"></b></div>
         <button id="btnEnter">Vstúpiť do cely</button>
       </div>
@@ -432,10 +432,13 @@
   // ---------- 3D SCÉNA (Three.js) ----------
   // Súradnice: ja stojím v cele z∈[0,4] (mreže na z=0), chodba z∈[-4,0],
   // oproti je stena s časovačom a dverami (x∈[-2,2]) a po stranách cely hráčov.
-  const CELL_W = 3.2, CELL_D = 4, CELL_H = 3.2, CORR = 4;
-  const BARS_Z = 0;                 // moje mreže
-  const ACROSS_Z = -CORR;           // mreže ciel oproti
-  function slotX(n) { const k = Math.ceil(n / 2); return (n % 2 ? -1 : 1) * (2 + CELL_W / 2 + (k - 1) * CELL_W); }
+  const CELL_W = 3.4, CELL_D = 4, CELL_H = 3.2, CORR = 4;
+  const BARS_Z = 0;                 // mreže všetkých ciel (v jednom rade)
+  const ACROSS_Z = -CORR;           // stena oproti s časovačom a dverami
+  // Cely sú v jednom rade vedľa seba. Miesto n má v rade pozíciu posOf(n);
+  // ja sa vždy vykresľujem v strede (x=0), susedia relatívne ku mne.
+  function posOf(n) { return (n % 2 ? -1 : 1) * Math.ceil(n / 2); }
+  function slotX(n) { return (posOf(n) - posOf(mySlot || 1)) * CELL_W; }
 
   let renderer, scene, camera, clock, myBars, doorPivot, timerTex, timerCanvas, redLight;
   const avatars = new Map(); // slot -> { group, target:{x,z,rot,pitch}, talking }
@@ -481,13 +484,27 @@
     const zc = (zFront + zBack) / 2, d = Math.abs(zBack - zFront);
     const f = new THREE.Mesh(new THREE.PlaneGeometry(CELL_W, d), floorMat); f.rotation.x = -Math.PI / 2; f.position.set(xc, 0, zc); scene.add(f);
     const c = new THREE.Mesh(new THREE.PlaneGeometry(CELL_W, d), wallMat); c.rotation.x = Math.PI / 2; c.position.set(xc, CELL_H, zc); scene.add(c);
-    box(0.1, CELL_H, d, wallMat, xc - CELL_W / 2, CELL_H / 2, zc);
-    box(0.1, CELL_H, d, wallMat, xc + CELL_W / 2, CELL_H / 2, zc);
     box(CELL_W, CELL_H, 0.1, wallMat, xc, CELL_H / 2, zBack);
     // pričňa
     const bed = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.12, 1.9), new THREE.MeshStandardMaterial({ color: 0x4a4238, roughness: 0.9 }));
     bed.position.set(xc + CELL_W / 2 - 0.5, 0.5, zc + (zBack > zFront ? 0.6 : -0.6)); scene.add(bed);
     [[-0.35, -0.85], [0.35, -0.85], [-0.35, 0.85], [0.35, 0.85]].forEach(([dx, dz]) => box(0.05, 0.5, 0.05, wallMat, bed.position.x + dx, 0.25, bed.position.z + dz));
+  }
+
+  // priečka medzi celami: dole múrik, hore nadpražie, medzi tým veľké okno so sklom
+  function partition(x, wallMat) {
+    const zc = CELL_D / 2, sill = 0.9, top = 2.7;
+    box(0.12, sill, CELL_D, wallMat, x, sill / 2, zc);
+    box(0.12, CELL_H - top, CELL_D, wallMat, x, (CELL_H + top) / 2, zc);
+    box(0.12, top - sill, 0.3, wallMat, x, (sill + top) / 2, 0.15);
+    box(0.12, top - sill, 0.3, wallMat, x, (sill + top) / 2, CELL_D - 0.15);
+    const frameMat = new THREE.MeshStandardMaterial({ color: 0x2a2a2a, metalness: 0.7, roughness: 0.4 });
+    box(0.16, 0.06, CELL_D - 0.6, frameMat, x, sill, zc);
+    box(0.16, 0.06, CELL_D - 0.6, frameMat, x, top, zc);
+    box(0.16, top - sill, 0.06, frameMat, x, (sill + top) / 2, zc); // stredná priečka
+    const glass = new THREE.Mesh(new THREE.PlaneGeometry(CELL_D - 0.6, top - sill),
+      new THREE.MeshStandardMaterial({ color: 0x9fc4d8, transparent: true, opacity: 0.12, roughness: 0.05, metalness: 0.1, side: THREE.DoubleSide, depthWrite: false }));
+    glass.rotation.y = Math.PI / 2; glass.position.set(x, (sill + top) / 2, zc); scene.add(glass);
   }
 
   function makeTimerTexture() {
@@ -557,24 +574,29 @@
     const wallTex = noiseTexture(74, 40, 256, 3), floorTex = noiseTexture(42, 30, 256, 4);
     const wallMat = new THREE.MeshStandardMaterial({ map: wallTex, color: 0x7d7770, roughness: 0.95 });
     const floorMat = new THREE.MeshStandardMaterial({ map: floorTex, color: 0x7a7570, roughness: 1 });
-    const corrW = 2 * (2 + CELL_W * 4) + 4;
+    const NC = 4; // cely na každú stranu odo mňa
+    const corrW = (2 * NC + 1) * CELL_W + 1;
 
-    // moja cela
-    cellWalls(0, BARS_Z, CELL_D, wallMat, floorMat);
-    myBars = barsGroup(CELL_W, CELL_H, BARS_Z, 0);
-    // múr po oboch stranách mojich mreží až po koniec chodby
-    const sideW = corrW / 2 - CELL_W / 2;
-    box(sideW, CELL_H, 0.12, wallMat, -(CELL_W / 2 + sideW / 2), CELL_H / 2, BARS_Z);
-    box(sideW, CELL_H, 0.12, wallMat, (CELL_W / 2 + sideW / 2), CELL_H / 2, BARS_Z);
+    // rad ciel vedľa seba: moja v strede, susedia po oboch stranách, medzi nimi okná
+    for (let k = -NC; k <= NC; k++) {
+      const xc = k * CELL_W;
+      cellWalls(xc, BARS_Z, CELL_D, wallMat, floorMat);
+      const bars = barsGroup(CELL_W, CELL_H, BARS_Z, xc);
+      if (k === 0) myBars = bars;
+      const lamp = new THREE.PointLight(0xffd9a0, 0.6, 6, 2); lamp.position.set(xc, CELL_H - 0.2, 1.6); scene.add(lamp);
+    }
+    for (let k = -NC; k < NC; k++) partition((k + 0.5) * CELL_W, wallMat);
+    box(0.12, CELL_H, CELL_D, wallMat, -(NC + 0.5) * CELL_W, CELL_H / 2, CELL_D / 2);
+    box(0.12, CELL_H, CELL_D, wallMat, (NC + 0.5) * CELL_W, CELL_H / 2, CELL_D / 2);
 
     // chodba
     const cf = new THREE.Mesh(new THREE.PlaneGeometry(corrW, CORR), floorMat); cf.rotation.x = -Math.PI / 2; cf.position.set(0, 0, -CORR / 2); scene.add(cf);
     const cc = new THREE.Mesh(new THREE.PlaneGeometry(corrW, CORR), wallMat); cc.rotation.x = Math.PI / 2; cc.position.set(0, CELL_H, -CORR / 2); scene.add(cc);
-    box(0.1, CELL_H, CORR + CELL_D * 2, wallMat, -corrW / 2, CELL_H / 2, -CORR / 2);
-    box(0.1, CELL_H, CORR + CELL_D * 2, wallMat, corrW / 2, CELL_H / 2, -CORR / 2);
+    box(0.1, CELL_H, CORR + CELL_D, wallMat, -corrW / 2, CELL_H / 2, (CELL_D - CORR) / 2);
+    box(0.1, CELL_H, CORR + CELL_D, wallMat, corrW / 2, CELL_H / 2, (CELL_D - CORR) / 2);
 
-    // stena oproti: časovač + dvere (x∈[-2,2])
-    box(4, CELL_H, 0.12, wallMat, 0, CELL_H / 2, ACROSS_Z - 0.06);
+    // stena oproti po celej dĺžke: časovač + dvere oproti mojej cele
+    box(corrW, CELL_H, 0.12, wallMat, 0, CELL_H / 2, ACROSS_Z - 0.06);
     const timerMesh = new THREE.Mesh(new THREE.PlaneGeometry(3.2, 0.8), new THREE.MeshBasicMaterial({ map: makeTimerTexture() }));
     timerMesh.position.set(0, 2.6, ACROSS_Z + 0.01); scene.add(timerMesh);
     redLight = new THREE.PointLight(0xff2020, 1.6, 9, 2); redLight.position.set(0, 2.6, ACROSS_Z + 0.8); scene.add(redLight);
@@ -588,19 +610,11 @@
     // za dverami tma
     box(1.4, 2.5, 0.05, new THREE.MeshBasicMaterial({ color: 0x000000 }), 0, 1.25, ACROSS_Z - 0.3);
 
-    // cely oproti (miesta 1..8)
-    for (let n = 1; n <= MAX; n++) {
-      const xc = slotX(n);
-      cellWalls(xc, ACROSS_Z, ACROSS_Z - CELL_D, wallMat, floorMat);
-      barsGroup(CELL_W, CELL_H, ACROSS_Z, xc);
-      const lamp = new THREE.PointLight(0xffd9a0, 0.9, 7, 2); lamp.position.set(xc, CELL_H - 0.2, ACROSS_Z - 1.4); scene.add(lamp);
-    }
     // svetlá chodby
     for (let x = -12; x <= 12; x += 6) {
       const l = new THREE.PointLight(0xffe2b0, 0.7, 10, 2); l.position.set(x, CELL_H - 0.1, -CORR / 2); scene.add(l);
       const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.06, 8, 8), new THREE.MeshBasicMaterial({ color: 0xffe6b0 })); bulb.position.copy(l.position); scene.add(bulb);
     }
-    const myLamp = new THREE.PointLight(0xffd9a0, 0.45, 6, 2); myLamp.position.set(0, CELL_H - 0.2, 2); scene.add(myLamp);
     scene.add(new THREE.AmbientLight(0x404040, 0.35));
 
     camera.position.set(me3.x, 1.6, me3.z);
@@ -677,7 +691,7 @@
       a.group.position.z += (tg.z - a.group.position.z) * Math.min(1, dt * 8);
       let dy = tg.rot - a.group.rotation.y; dy = Math.atan2(Math.sin(dy), Math.cos(dy));
       a.group.rotation.y += dy * Math.min(1, dt * 8);
-      u.head.rotation.x = tg.pitch * 0.6;
+      u.head.rotation.x = -tg.pitch * 0.6;
       const moving = Math.hypot(tg.x - a.group.position.x, tg.z - a.group.position.z) > 0.03;
       const sw = moving ? Math.sin(t * 9) * 0.5 : 0;
       u.legL.rotation.x = sw; u.legR.rotation.x = -sw; u.armL.rotation.x = -sw; u.armR.rotation.x = sw;
@@ -687,14 +701,14 @@
     renderer.render(scene, camera);
   }
 
-  // avatar hráča na mieste n (v cele oproti), pozícia zrkadlená cez chodbu
+  // avatar hráča na mieste n (v susednej cele), rovnaká orientácia ako ja
   function ensureAvatar(e) {
     if (avatars.has(e.slot)) return avatars.get(e.slot);
     const g = makeAvatar(e.name || "?");
     const xc = slotX(e.slot);
-    g.position.set(xc, 0, ACROSS_Z - 1.2);
+    g.position.set(xc, 0, 1.2); g.rotation.y = Math.PI;
     scene.add(g);
-    const a = { slot: e.slot, group: g, target: { x: xc, z: ACROSS_Z - 1.2, rot: 0, pitch: 0 }, talking: false, shownTalking: false };
+    const a = { slot: e.slot, group: g, target: { x: xc, z: 1.2, rot: Math.PI, pitch: 0 }, talking: false, shownTalking: false };
     avatars.set(e.slot, a);
     return a;
   }
@@ -705,8 +719,8 @@
   function moveAvatar(slot, p) { // p = [x, z, yaw, pitch] v súradniciach jeho cely
     const a = avatars.get(slot); if (!a) return;
     a.target.x = slotX(slot) + p[0];
-    a.target.z = ACROSS_Z - p[1];
-    a.target.rot = -p[2];
+    a.target.z = p[1];
+    a.target.rot = p[2] + Math.PI;
     a.target.pitch = p[3] || 0;
   }
   function removeAvatar(slot) { const a = avatars.get(slot); if (a) { scene.remove(a.group); avatars.delete(slot); } }
