@@ -683,11 +683,10 @@
     t.innerHTML = '<video autoplay playsinline' + (isMe ? ' muted' : '') + '></video><div class="avatar"></div><div class="cellbars"></div><div class="plate"></div>';
     (e.slot % 2 ? $("colL") : $("colR")).appendChild(t);
     e.tile = t;
-    updateTile(e);
     return t;
   }
   function updateTile(e) {
-    if (!e.tile) return;
+    if (!e.tile) { if (e.name || e.stream) makeTile(e, e.slot === mySlot); else return; }
     const v = e.tile.querySelector("video"), av = e.tile.querySelector(".avatar");
     e.tile.querySelector(".plate").textContent = (e.name || "…") + (e.slot === mySlot ? " (ty)" : "");
     if (e.stream) {
@@ -700,7 +699,7 @@
     }
   }
   function entry(slot) {
-    if (!peers.has(slot)) { const e = { slot, name: "", stream: null, tile: null, conn: null, call: null }; peers.set(slot, e); makeTile(e, false); }
+    if (!peers.has(slot)) peers.set(slot, { slot, name: "", stream: null, tile: null, conn: null, call: null });
     return peers.get(slot);
   }
   function removePeer(slot) {
@@ -712,7 +711,7 @@
     countStatus();
   }
   function countStatus() {
-    const n = peers.size + 1;
+    const n = [...peers.values()].filter(e => e.tile).length + 1;
     setStatus(n === 1 ? "si tu sám, čakám na kamošov" : "v celách: " + n);
   }
 
@@ -753,7 +752,10 @@
     p.on("error", err => {
       const t = err && err.type;
       if (t === "unavailable-id") { try { p.destroy(); } catch {} connectNet(slot + 1); }
-      else if (t === "peer-unavailable") { /* na tom mieste nikto nie je */ }
+      else if (t === "peer-unavailable") { // na tom mieste nikto nie je
+        const m = String(err.message || "").match(/cela-[a-z0-9]+-(\d+)/);
+        if (m) { const e = peers.get(parseInt(m[1], 10)); if (e && !e.tile) removePeer(e.slot); }
+      }
       else if (!peer) { setStatus("spojenie zlyhalo: " + (t || "chyba")); }
     });
     p.on("call", call => { try { call.answer(localStream); } catch {} handleCall(call); });
@@ -810,6 +812,7 @@
   function makeMeTile() { // vlastná dlaždica po pridelení miesta (vieme stranu)
     me = { slot: mySlot, name: myName, stream: rawStream, tile: null };
     makeTile(me, true);
+    updateTile(me);
   }
 
   function tick() {
