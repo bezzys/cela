@@ -723,10 +723,10 @@
     conn.on("close", () => removePeer(slot));
     conn.on("error", () => {});
   }
-  function handleCall(call) {
+  function handleCall(call, incoming) {
     const slot = slotFromId(call.peer); if (!slot || slot === mySlot) return;
     const e = entry(slot); e.call = call;
-    if (call.metadata && call.metadata.name && !e.name) { e.name = call.metadata.name; updateTile(e); }
+    if (incoming && call.metadata && call.metadata.name && !e.name) { e.name = String(call.metadata.name).slice(0, 16); updateTile(e); }
     call.on("stream", s => { e.stream = s; updateTile(e); countStatus(); s.onaddtrack = s.onremovetrack = () => updateTile(e); });
     call.on("close", () => removePeer(slot));
     call.on("error", () => {});
@@ -736,7 +736,7 @@
     try {
       handleConn(peer.connect(id, { metadata: { name: myName } }));
       const call = peer.call(id, localStream, { metadata: { name: myName } });
-      if (call) handleCall(call);
+      if (call) handleCall(call, false);
     } catch {}
   }
   function connectNet(slot = 1) {
@@ -758,7 +758,7 @@
       }
       else if (!peer) { setStatus("spojenie zlyhalo: " + (t || "chyba")); }
     });
-    p.on("call", call => { try { call.answer(localStream); } catch {} handleCall(call); });
+    p.on("call", call => { try { call.answer(localStream); } catch {} handleCall(call, true); });
     p.on("connection", conn => handleConn(conn));
     p.on("disconnected", () => { try { p.reconnect(); } catch {} });
   }
