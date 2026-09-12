@@ -187,16 +187,15 @@
     box-shadow: inset 0 0 30px #000, 0 0 18px #000;
     overflow: hidden;
   }
-  .cell video {
-    width: 100%; height: 100%; object-fit: cover; display: block;
-    filter: grayscale(.35) contrast(1.15) brightness(.75) sepia(.15);
-    background: #000;
-  }
+  .cell audio { display: none; }
   .cell .avatar {
     position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
     font-size: clamp(28px, 4vw, 56px); color: #6b675c; font-weight: bold;
     background: radial-gradient(ellipse at 50% 60%, #22221f, #060606);
+    transition: color .15s, text-shadow .15s;
   }
+  .cell.talking .avatar { color: #e8dcc0; text-shadow: 0 0 14px rgba(255,200,120,.7); }
+  .cell.talking { border-color: #5a4a2a; box-shadow: inset 0 0 30px #000, 0 0 22px rgba(255,160,60,.35); }
   .cell .cellbars {
     position: absolute; inset: 0;
     background: repeating-linear-gradient(90deg,
@@ -335,7 +334,7 @@
       </div>
 
       <div id="enter" hidden>
-        <div class="hint" style="text-align:center;font-size:14px;color:#aaa">Hra je pripravená. Po kliknutí sa prehliadač spýta na kameru a mikrofón.</div>
+        <div class="hint" style="text-align:center;font-size:14px;color:#aaa">Hra je pripravená. Po kliknutí sa prehliadač spýta na mikrofón.</div>
         <button id="btnEnter2">Vstúpiť do cely</button>
       </div>
 
@@ -344,7 +343,7 @@
         <div class="link" id="link"></div>
         <button class="ghost" id="btnCopy">Kopírovať link</button>
         <div class="ok" id="copied" hidden>Skopírované ✓</div>
-        <div class="hint">Pošli link kamošom. Každý, kto ho otvorí, sa objaví v susednej cele s kamerou a hlasom. Odpočet aj koniec bežia všetkým naraz. Max. 8 hráčov.<br>
+        <div class="hint">Pošli link kamošom. Každý, kto ho otvorí, sa objaví v susednej cele a budete sa počuť. Odpočet aj koniec bežia všetkým naraz. Max. 8 hráčov.<br>
         Ak majú súbor u seba, stačí im vložiť kód: <b id="codeOnly"></b></div>
         <button id="btnEnter">Vstúpiť do cely</button>
       </div>
@@ -389,7 +388,6 @@
 
   <div class="ctrl" id="ctrl" hidden>
     <button id="mic" title="Mikrofón">🎤</button>
-    <button id="cam" title="Kamera">📷</button>
     <select id="voice" title="Menič hlasu">
       <option value="normal">Hlas: normálny</option>
       <option value="demon">Hlas: démon</option>
@@ -641,7 +639,7 @@
       voiceIn = ctx.createMediaStreamSource(raw);
       voiceOut = ctx.createMediaStreamDestination();
       buildVoice($("voice").value);
-      return new MediaStream([voiceOut.stream.getAudioTracks()[0], ...raw.getVideoTracks()]);
+      return new MediaStream([voiceOut.stream.getAudioTracks()[0]]);
     } catch { return raw; }
   }
   $("voice").onchange = () => buildVoice($("voice").value);
@@ -659,15 +657,12 @@
   async function getMedia() {
     const md = navigator.mediaDevices;
     if (md && md.getUserMedia) {
-      try { return await md.getUserMedia({ video: { width: { ideal: 320 }, height: { ideal: 240 }, facingMode: "user" }, audio: true }); } catch {}
-      try { return await md.getUserMedia({ audio: true }); } catch {}
+      try { return await md.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true }, video: false }); } catch {}
     }
     return fakeStream();
   }
-  function fakeStream() { // bez kamery a mikrofónu: prázdny obraz + ticho, aby sa spojenie dalo nadviazať
-    const c = document.createElement("canvas"); c.width = 2; c.height = 2;
-    c.getContext("2d").fillRect(0, 0, 2, 2);
-    const s = c.captureStream ? c.captureStream(1) : new MediaStream();
+  function fakeStream() { // bez mikrofónu: ticho, aby sa spojenie dalo nadviazať
+    const s = new MediaStream();
     try {
       const ctx = audio(); const dst = ctx.createMediaStreamDestination();
       const o = ctx.createOscillator(), g = ctx.createGain(); g.gain.value = 0;
@@ -680,23 +675,37 @@
   function makeTile(e, isMe) {
     const t = document.createElement("div");
     t.className = "cell" + (isMe ? " me" : "");
-    t.innerHTML = '<video autoplay playsinline' + (isMe ? ' muted' : '') + '></video><div class="avatar"></div><div class="cellbars"></div><div class="plate"></div>';
+    t.innerHTML = '<audio autoplay playsinline' + (isMe ? ' muted' : '') + '></audio><div class="avatar"></div><div class="cellbars"></div><div class="plate"></div>';
     (e.slot % 2 ? $("colL") : $("colR")).appendChild(t);
     e.tile = t;
     return t;
   }
   function updateTile(e) {
     if (!e.tile) { if (e.name || e.stream) makeTile(e, e.slot === mySlot); else return; }
-    const v = e.tile.querySelector("video"), av = e.tile.querySelector(".avatar");
+    const a = e.tile.querySelector("audio"), av = e.tile.querySelector(".avatar");
     e.tile.querySelector(".plate").textContent = (e.name || "…") + (e.slot === mySlot ? " (ty)" : "");
-    if (e.stream) {
-      if (v.srcObject !== e.stream) { v.srcObject = e.stream; v.play().catch(() => {}); }
-      const hasVideo = e.stream.getVideoTracks().some(t => t.enabled && t.readyState === "live" && !(t.getSettings && t.getSettings().width <= 2));
-      av.hidden = hasVideo;
-      av.textContent = (e.name || "?").slice(0, 1).toUpperCase();
-    } else {
-      av.hidden = false; av.textContent = (e.name || "?").slice(0, 1).toUpperCase();
+    av.textContent = (e.name || "?").slice(0, 1).toUpperCase();
+    if (e.stream && a.srcObject !== e.stream) {
+      a.srcObject = e.stream; a.play().catch(() => {});
+      watchTalking(e);
     }
+  }
+  // rozsvieti okienko, keď hráč hovorí
+  function watchTalking(e) {
+    try {
+      const ctx = audio(); if (!ctx) return;
+      const src = ctx.createMediaStreamSource(e.stream);
+      const an = ctx.createAnalyser(); an.fftSize = 512; src.connect(an);
+      const buf = new Uint8Array(an.frequencyBinCount);
+      e.talkTimer && clearInterval(e.talkTimer);
+      e.talkTimer = setInterval(() => {
+        if (!e.tile) { clearInterval(e.talkTimer); return; }
+        an.getByteTimeDomainData(buf);
+        let sum = 0; for (let i = 0; i < buf.length; i++) { const d = (buf[i] - 128) / 128; sum += d * d; }
+        const rms = Math.sqrt(sum / buf.length);
+        e.tile.classList.toggle("talking", rms > 0.04);
+      }, 80);
+    } catch {}
   }
   function entry(slot) {
     if (!peers.has(slot)) peers.set(slot, { slot, name: "", stream: null, tile: null, conn: null, call: null });
@@ -706,6 +715,7 @@
     const e = peers.get(slot); if (!e) return;
     try { e.call && e.call.close(); } catch {}
     try { e.conn && e.conn.close(); } catch {}
+    e.talkTimer && clearInterval(e.talkTimer);
     e.tile && e.tile.remove();
     peers.delete(slot);
     countStatus();
@@ -773,13 +783,6 @@
     $("mic").classList.toggle("off", !on); $("mic").textContent = on ? "🎤" : "🔇";
     if (me && me.tile) me.tile.classList.toggle("muted", !on);
   };
-  $("cam").onclick = () => {
-    if (!rawStream) return;
-    const tracks = rawStream.getVideoTracks(); if (!tracks.length) return;
-    const on = !tracks[0].enabled; tracks.forEach(t => t.enabled = on);
-    $("cam").classList.toggle("off", !on);
-    if (me) updateTile(me);
-  };
 
   // ---------- hra ----------
   const el = $("timer");
@@ -804,7 +807,6 @@
     // kamera + hlas
     rawStream = await getMedia();
     if (!rawStream.getAudioTracks().length) { $("mic").classList.add("off"); }
-    if (!rawStream.getVideoTracks().length) { $("cam").classList.add("off"); }
     localStream = processedStream(rawStream); // do siete ide hlas po efekte
     setStatus("pripájam…");
     connectNet(1);
