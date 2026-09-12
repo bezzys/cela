@@ -240,6 +240,15 @@
   .credits p { max-width: 28em; }
   body.show-credits .credits { opacity: 1; }
   body.instant * { transition: none !important; }
+
+  .mute {
+    position: absolute; right: 14px; bottom: 14px; z-index: 40;
+    width: 44px; height: 44px; border-radius: 50%;
+    background: rgba(0,0,0,.55); color: #bbb; border: 1px solid #444;
+    font-size: 20px; cursor: pointer; opacity: .6;
+  }
+  .mute:hover { opacity: 1; }
+  body.dark .mute { display: none; }
 </style>
 </head>
 <body>
@@ -266,6 +275,11 @@
         <label>MÁM LINK / KÓD OD KAMOŠA</label>
         <input id="code" placeholder="vlož link alebo kód">
         <button class="ghost" id="btnJoin">Pripojiť sa</button>
+      </div>
+
+      <div id="enter" hidden>
+        <div class="hint" style="text-align:center;font-size:14px;color:#aaa">Hra je pripravená. Zvuk sa spustí po kliknutí.</div>
+        <button id="btnEnter2">Vstúpiť do cely</button>
       </div>
 
       <div id="created" hidden>
@@ -310,6 +324,8 @@
   </div>
   <div class="vignette"></div>
   <div class="noise"></div>
+
+  <button class="mute" id="mute" title="Zvuk" hidden>🔊</button>
 
   <div class="black"></div>
   <div class="credits">
@@ -370,17 +386,76 @@
     startGame();
   };
   $("btnEnter").onclick = startGame;
+  $("btnEnter2").onclick = startGame;
 
-  if (game) startGame();
+  if (game) { $("create").hidden = true; $("enter").hidden = false; }
+
+  // ---------- zvuk (Web Audio, bez súborov) ----------
+  let actx = null, muted = false;
+  function audio() {
+    if (!actx) { try { actx = new (window.AudioContext || window.webkitAudioContext)(); } catch { return null; } }
+    if (actx.state === "suspended") actx.resume();
+    return actx;
+  }
+  function noiseBuffer(ctx, secs) {
+    const b = ctx.createBuffer(1, ctx.sampleRate * secs, ctx.sampleRate);
+    const d = b.getChannelData(0);
+    for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+    return b;
+  }
+  function tone(type, freq, dur, vol, when = 0, slideTo = null) {
+    const ctx = audio(); if (!ctx || muted) return;
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    const t = ctx.currentTime + when;
+    o.type = type; o.frequency.setValueAtTime(freq, t);
+    if (slideTo) o.frequency.exponentialRampToValueAtTime(slideTo, t + dur);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(vol, t + 0.005);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g).connect(ctx.destination);
+    o.start(t); o.stop(t + dur + 0.05);
+  }
+  function noise(dur, vol, filterType, freq, when = 0, fadeIn = 0.05) {
+    const ctx = audio(); if (!ctx || muted) return;
+    const src = ctx.createBufferSource(); src.buffer = noiseBuffer(ctx, dur + 0.1);
+    const f = ctx.createBiquadFilter(); f.type = filterType; f.frequency.value = freq; f.Q.value = 1.5;
+    const g = ctx.createGain();
+    const t = ctx.currentTime + when;
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(vol, t + fadeIn);
+    g.gain.setValueAtTime(vol, t + dur - 0.3);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    src.connect(f).connect(g).connect(ctx.destination);
+    src.start(t); src.stop(t + dur);
+  }
+  const sfx = {
+    tick(odd)  { tone("square", odd ? 1400 : 1000, 0.035, 0.05); noise(0.03, 0.04, "highpass", 3000); },
+    beep()     { tone("sine", 1600, 0.12, 0.18); },
+    alarm() {  // 2 s striedavý bzučiak
+      for (let i = 0; i < 8; i++) tone("sawtooth", i % 2 ? 520 : 690, 0.22, 0.12, i * 0.25);
+    },
+    rumble()   { noise(5, 0.35, "lowpass", 160, 0, 0.6); tone("sine", 45, 5, 0.12, 0, 60); },
+    creak() {  // vŕzganie + buchnutie
+      tone("sawtooth", 180, 2.2, 0.05, 0, 320);
+      noise(2.2, 0.08, "bandpass", 420, 0, 0.4);
+      noise(0.35, 0.5, "lowpass", 120, 2.3, 0.01);
+    }
+  };
+  $("mute").onclick = () => {
+    muted = !muted;
+    $("mute").textContent = muted ? "🔇" : "🔊";
+  };
 
   // ---------- hra ----------
   const el = $("timer");
-  let iv, ended = false;
+  let iv, ended = false, lastLeft = null;
 
   function pad(n) { return String(n).padStart(2, "0"); }
 
   function startGame() {
     lobby.hidden = true;
+    $("mute").hidden = false;
+    audio();
     const passed = (Date.now() - game.end) / 1000;
     if (passed > 25) { // koniec už dávno prebehol -> rovno text
       document.body.classList.add("instant", "bars-up", "walk", "open", "dark", "show-credits");
@@ -397,6 +472,10 @@
       left = 0;
       if (!ended) { ended = true; clearInterval(iv); ending(); }
     }
+    if (left !== lastLeft) {
+      if (left > 0) { left <= 10 ? sfx.beep() : sfx.tick(left % 2); }
+      lastLeft = left;
+    }
     const h = Math.floor(left / 3600);
     const m = Math.floor((left % 3600) / 60);
     const s = left % 60;
@@ -407,11 +486,12 @@
     const b = document.body;
     // časy sú relatívne ku koncu, takže neskorší návštevník sa dobehne
     const late = Math.max(0, Date.now() - game.end);
-    const at = (ms, cls) => setTimeout(() => b.classList.add(cls), Math.max(0, ms - late));
+    const at = (ms, cls, snd) => setTimeout(() => { b.classList.add(cls); if (snd) snd(); }, Math.max(0, ms - late));
     el.classList.add("done");
-    at(2000,  "bars-up");      // mreže hore (5 s)
+    if (late < 1500) sfx.alarm();
+    at(2000,  "bars-up", sfx.rumble); // mreže hore (5 s)
     at(7500,  "walk");         // chôdza k dverám (6 s)
-    at(13500, "open");         // otvorenie dverí (2.5 s)
+    at(13500, "open", sfx.creak);     // otvorenie dverí (2.5 s)
     at(16000, "dark");         // tma
     at(18500, "show-credits"); // text
   }
