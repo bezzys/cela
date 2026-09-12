@@ -440,7 +440,7 @@
   let renderer, scene, camera, clock, myBars, doorPivot, timerTex, timerCanvas, redLight;
   const avatars = new Map(); // slot -> { group, target:{x,z,rot,pitch}, talking }
   const look = { yaw: 0, pitch: 0 };
-  const me3 = { x: 0, z: 2.2 };
+  const me3 = { x: 0, z: 1.2 };
   const keys = {};
   let three = false;
 
@@ -522,8 +522,8 @@
   }
   function makeAvatar(name) {
     const g = new THREE.Group();
-    const suit = new THREE.MeshStandardMaterial({ color: 0xd8641c, roughness: 0.85 });
-    const skin = new THREE.MeshStandardMaterial({ color: 0xc9a07a, roughness: 0.7 });
+    const suit = new THREE.MeshStandardMaterial({ color: 0xf07a22, roughness: 0.8, emissive: 0x3a1a05 });
+    const skin = new THREE.MeshStandardMaterial({ color: 0xd9b08a, roughness: 0.7, emissive: 0x2a2018 });
     const dark = new THREE.MeshStandardMaterial({ color: 0x1c1c1c, roughness: 0.9 });
     const legL = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.8, 0.22), suit); legL.position.set(-0.13, 0.4, 0);
     const legR = legL.clone(); legR.position.x = 0.13;
@@ -555,7 +555,7 @@
     clock = new THREE.Clock();
 
     const wallTex = noiseTexture(74, 40, 256, 3), floorTex = noiseTexture(42, 30, 256, 4);
-    const wallMat = new THREE.MeshStandardMaterial({ map: wallTex, color: 0x9a968c, roughness: 0.95 });
+    const wallMat = new THREE.MeshStandardMaterial({ map: wallTex, color: 0x7d7770, roughness: 0.95 });
     const floorMat = new THREE.MeshStandardMaterial({ map: floorTex, color: 0x7a7570, roughness: 1 });
     const corrW = 2 * (2 + CELL_W * 4) + 4;
 
@@ -593,11 +593,11 @@
       const xc = slotX(n);
       cellWalls(xc, ACROSS_Z, ACROSS_Z - CELL_D, wallMat, floorMat);
       barsGroup(CELL_W, CELL_H, ACROSS_Z, xc);
-      const lamp = new THREE.PointLight(0xffd9a0, 0.35, 6, 2); lamp.position.set(xc, CELL_H - 0.2, ACROSS_Z - 2); scene.add(lamp);
+      const lamp = new THREE.PointLight(0xffd9a0, 0.9, 7, 2); lamp.position.set(xc, CELL_H - 0.2, ACROSS_Z - 1.4); scene.add(lamp);
     }
     // svetlá chodby
     for (let x = -12; x <= 12; x += 6) {
-      const l = new THREE.PointLight(0xffe2b0, 0.5, 9, 2); l.position.set(x, CELL_H - 0.1, -CORR / 2); scene.add(l);
+      const l = new THREE.PointLight(0xffe2b0, 0.7, 10, 2); l.position.set(x, CELL_H - 0.1, -CORR / 2); scene.add(l);
       const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.06, 8, 8), new THREE.MeshBasicMaterial({ color: 0xffe6b0 })); bulb.position.copy(l.position); scene.add(bulb);
     }
     const myLamp = new THREE.PointLight(0xffd9a0, 0.45, 6, 2); myLamp.position.set(0, CELL_H - 0.2, 2); scene.add(myLamp);
@@ -692,9 +692,9 @@
     if (avatars.has(e.slot)) return avatars.get(e.slot);
     const g = makeAvatar(e.name || "?");
     const xc = slotX(e.slot);
-    g.position.set(xc, 0, ACROSS_Z - 2.2);
+    g.position.set(xc, 0, ACROSS_Z - 1.2);
     scene.add(g);
-    const a = { slot: e.slot, group: g, target: { x: xc, z: ACROSS_Z - 2.2, rot: 0, pitch: 0 }, talking: false, shownTalking: false };
+    const a = { slot: e.slot, group: g, target: { x: xc, z: ACROSS_Z - 1.2, rot: 0, pitch: 0 }, talking: false, shownTalking: false };
     avatars.set(e.slot, a);
     return a;
   }
