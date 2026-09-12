@@ -99,7 +99,7 @@
 
   /* ===== ČASOVAČ ===== */
   .timer {
-    position: absolute; left: 50%; top: 18%;
+    position: absolute; left: 50%; top: 5%;
     transform: translateX(-50%);
     padding: 14px 28px;
     background: #0b0000;
@@ -124,7 +124,7 @@
   @keyframes alarm { 50% { opacity: .2; } }
 
   .glow {
-    position: absolute; left: 50%; top: 10%; width: 60vw; height: 40vh;
+    position: absolute; left: 50%; top: -2%; width: 60vw; height: 40vh;
     transform: translateX(-50%);
     background: radial-gradient(ellipse, rgba(255,0,0,.22), transparent 65%);
     pointer-events: none;
@@ -133,9 +133,9 @@
 
   /* ===== DVERE ===== */
   .doorway {
-    position: absolute; left: 50%; bottom: 8%;
+    position: absolute; left: 50%; bottom: 6%;
     transform: translateX(-50%);
-    width: clamp(160px, 24vw, 300px); height: clamp(280px, 52vh, 520px);
+    width: clamp(160px, 24vw, 300px); height: clamp(220px, 48vh, 480px);
     background: #000;
     border-radius: 8px 8px 0 0;
     perspective: 700px;
@@ -193,7 +193,7 @@
     filter: drop-shadow(0 6px 10px rgba(0,0,0,.9));
     transition: transform 5s ease-in-out;
   }
-  .crossbar.top { top: 14%; }
+  .crossbar.top { top: 26%; }
   .crossbar.bottom { bottom: 16%; }
 
   .vignette {
