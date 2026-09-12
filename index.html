@@ -2,17 +2,16 @@
 <html lang="sk">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
 <title>Cela</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.4/peerjs.min.js"></script>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   html, body { height: 100%; overflow: hidden; background: #000; }
-  body {
-    font-family: "Courier New", Consolas, monospace;
-    perspective: 900px;
-  }
+  body { font-family: "Courier New", Consolas, monospace; }
   [hidden] { display: none !important; }
+  canvas#gl { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
 
   /* ===== LOBBY ===== */
   .lobby {
@@ -56,161 +55,6 @@
   .lobby .hint { font-size: 12px; color: #777; margin-top: 10px; line-height: 1.5; }
   .lobby .ok { color: #9f9; font-size: 13px; margin-top: 8px; }
 
-  /* ===== MIESTNOSŤ ===== */
-  .room {
-    position: absolute; inset: 0;
-    transform-style: preserve-3d;
-    transform-origin: 50% 72%;
-    transition: transform 6s cubic-bezier(.4,0,.6,1);
-  }
-  .wall {
-    position: absolute; inset: 0;
-    background:
-      repeating-linear-gradient(0deg, rgba(0,0,0,.18) 0 2px, transparent 2px 46px),
-      repeating-linear-gradient(90deg, rgba(0,0,0,.18) 0 2px, transparent 2px 110px),
-      radial-gradient(ellipse at 50% 40%, #3a3a38 0%, #1f1f1d 50%, #0a0a0a 100%);
-  }
-  .wall::after {
-    content: ""; position: absolute; inset: 0;
-    background:
-      radial-gradient(ellipse at 15% 90%, rgba(0,0,0,.6), transparent 40%),
-      radial-gradient(ellipse at 85% 85%, rgba(0,0,0,.55), transparent 45%),
-      radial-gradient(ellipse at 70% 10%, rgba(0,0,0,.4), transparent 35%);
-  }
-  .floor {
-    position: absolute; left: -30%; right: -30%; bottom: 0; height: 30%;
-    background:
-      repeating-linear-gradient(90deg, rgba(0,0,0,.25) 0 3px, transparent 3px 90px),
-      linear-gradient(#2a2a28, #050505);
-    transform: rotateX(70deg); transform-origin: bottom;
-  }
-  .ceiling {
-    position: absolute; left: -30%; right: -30%; top: 0; height: 25%;
-    background: linear-gradient(#050505, #1a1a18);
-    transform: rotateX(-70deg); transform-origin: top;
-  }
-  .side {
-    position: absolute; top: 0; bottom: 0; width: 22%;
-    background: linear-gradient(90deg, #060606, #262624);
-  }
-  .side.left  { left: 0;  transform: rotateY(65deg); transform-origin: left; }
-  .side.right { right: 0; transform: rotateY(-65deg) scaleX(-1); transform-origin: right; }
-
-  /* ===== ČASOVAČ ===== */
-  .timer {
-    position: absolute; left: 50%; top: 5%;
-    transform: translateX(-50%);
-    padding: 14px 28px;
-    background: #0b0000;
-    border: 4px solid #2a1a1a;
-    border-radius: 6px;
-    box-shadow: 0 0 6px #000, inset 0 0 20px #200, 0 0 40px rgba(255,0,0,.35);
-    font-size: clamp(36px, min(9vw, 12vh), 110px);
-    font-weight: bold;
-    letter-spacing: .08em;
-    color: #ff1a1a;
-    text-shadow: 0 0 6px #f00, 0 0 18px #f00, 0 0 40px #a00;
-    animation: flicker 4s infinite;
-    transition: opacity 2s;
-  }
-  .timer.done { animation: alarm .5s infinite; }
-  @keyframes flicker {
-    0%, 96%, 100% { opacity: 1; }
-    97% { opacity: .55; }
-    98% { opacity: 1; }
-    99% { opacity: .7; }
-  }
-  @keyframes alarm { 50% { opacity: .2; } }
-
-  .glow {
-    position: absolute; left: 50%; top: -2%; width: 60vw; height: 40vh;
-    transform: translateX(-50%);
-    background: radial-gradient(ellipse, rgba(255,0,0,.22), transparent 65%);
-    pointer-events: none;
-    transition: opacity 2s;
-  }
-
-  /* ===== DVERE ===== */
-  .doorway {
-    position: absolute; left: 50%; bottom: 6%;
-    transform: translateX(-50%);
-    width: clamp(160px, 24vw, 300px); height: clamp(180px, 46vh, 480px);
-    background: #000;
-    border-radius: 8px 8px 0 0;
-    perspective: 700px;
-  }
-  .door {
-    position: absolute; inset: 0;
-    background:
-      repeating-linear-gradient(0deg, rgba(255,255,255,.03) 0 2px, transparent 2px 28px),
-      linear-gradient(90deg, #3c3d3f, #5a5c5f 30%, #4a4c4f 70%, #2c2d2f);
-    border: 10px solid #1c1c1c;
-    border-bottom: none;
-    border-radius: 8px 8px 0 0;
-    box-shadow: inset 0 0 30px #000, 0 0 25px #000;
-    transform-origin: left center;
-    transition: transform 2.5s ease-in-out;
-  }
-  .door::before {
-    content: ""; position: absolute; left: 50%; top: 18%;
-    transform: translateX(-50%);
-    width: 45%; height: 12%;
-    background: #050505;
-    border: 5px solid #232323;
-    box-shadow: inset 0 0 12px #000;
-  }
-  .door::after {
-    content: ""; position: absolute; right: 12%; top: 52%;
-    width: 14px; height: 40px; border-radius: 7px;
-    background: linear-gradient(#999, #444);
-    box-shadow: 0 2px 4px #000;
-  }
-  .rivets { position: absolute; inset: 0; }
-  .rivets i {
-    position: absolute; width: 9px; height: 9px; border-radius: 50%;
-    background: radial-gradient(circle at 35% 35%, #aaa, #333);
-    box-shadow: 0 1px 2px #000;
-  }
-
-  /* ===== SUSEDNÉ CELY (kamery spoluhráčov) ===== */
-  .cells {
-    position: absolute; left: 2%; right: 2%; top: 24%; bottom: 10%;
-    display: flex; justify-content: space-between; align-items: flex-start;
-    pointer-events: none;
-    transition: opacity 1.5s;
-  }
-  .cells .col { display: flex; flex-direction: column; gap: 14px; width: clamp(110px, 17vw, 230px); }
-  .cell {
-    position: relative; width: 100%; aspect-ratio: 4 / 3;
-    background: #0c0c0b;
-    border: 6px solid #262624;
-    box-shadow: inset 0 0 30px #000, 0 0 18px #000;
-    overflow: hidden;
-  }
-  .cell audio { display: none; }
-  .cell .avatar {
-    position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
-    font-size: clamp(28px, 4vw, 56px); color: #6b675c; font-weight: bold;
-    background: radial-gradient(ellipse at 50% 60%, #22221f, #060606);
-    transition: color .15s, text-shadow .15s;
-  }
-  .cell.talking .avatar { color: #e8dcc0; text-shadow: 0 0 14px rgba(255,200,120,.7); }
-  .cell.talking { border-color: #5a4a2a; box-shadow: inset 0 0 30px #000, 0 0 22px rgba(255,160,60,.35); }
-  .cell .cellbars {
-    position: absolute; inset: 0;
-    background: repeating-linear-gradient(90deg,
-      transparent 0 18%, #0a0a0a 18%, #444 20%, #1a1a1a 22%, transparent 22.5%);
-    box-shadow: inset 0 0 25px rgba(0,0,0,.9);
-  }
-  .cell .plate {
-    position: absolute; left: 0; right: 0; bottom: 0;
-    padding: 3px 6px; font-size: clamp(10px, 1.1vw, 13px); letter-spacing: .1em; text-transform: uppercase;
-    color: #cfc9b8; background: rgba(0,0,0,.7); text-align: center;
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  }
-  .cell.me .plate { color: #ff7a7a; }
-  .cell.muted .plate::after { content: " 🔇"; }
-
   /* ===== OVLÁDANIE ===== */
   .ctrl {
     position: absolute; left: 50%; bottom: 10px; z-index: 40;
@@ -233,62 +77,33 @@
     background: rgba(0,0,0,.6); border: 1px solid #333; height: 30px; line-height: 28px;
     max-width: 44vw; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
-
-  /* ===== MREŽE (popredie) ===== */
-  .bars {
-    position: absolute; inset: 0;
-    display: flex; justify-content: space-evenly;
-    pointer-events: none;
-    filter: drop-shadow(0 0 12px rgba(0,0,0,.9));
-    transition: transform 5s ease-in-out;
+  .help {
+    position: absolute; top: 10px; left: 50%; transform: translateX(-50%); z-index: 40;
+    font-size: 11px; color: #777; letter-spacing: .08em; background: rgba(0,0,0,.5);
+    padding: 4px 10px; border: 1px solid #222; pointer-events: none;
+    transition: opacity 1s;
   }
-  .bars span {
-    width: clamp(18px, 2.2vw, 30px); height: 100%;
-    background: linear-gradient(90deg, #0a0a0a, #3d3d3d 35%, #5a5a5a 50%, #2b2b2b 70%, #050505);
-    border-radius: 3px;
-  }
-  .crossbar {
-    position: absolute; left: 0; right: 0; height: clamp(20px, 2.6vw, 34px);
-    background: linear-gradient(#050505, #3a3a3a 40%, #555 55%, #1e1e1e);
-    pointer-events: none;
-    filter: drop-shadow(0 6px 10px rgba(0,0,0,.9));
-    transition: transform 5s ease-in-out;
-  }
-  .crossbar.top { top: 26%; }
-  .crossbar.bottom { bottom: 16%; }
 
   .vignette {
-    position: absolute; inset: 0; pointer-events: none;
-    background: radial-gradient(ellipse at center, transparent 45%, rgba(0,0,0,.85) 100%);
+    position: absolute; inset: 0; pointer-events: none; z-index: 5;
+    background: radial-gradient(ellipse at center, transparent 50%, rgba(0,0,0,.8) 100%);
   }
   .noise {
-    position: absolute; inset: 0; pointer-events: none; opacity: .06;
+    position: absolute; inset: 0; pointer-events: none; opacity: .05; z-index: 6;
     background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><filter id='n'><feTurbulence baseFrequency='.9' numOctaves='2'/></filter><rect width='120' height='120' filter='url(%23n)'/></svg>");
   }
 
   /* ===== KONIEC ===== */
-  body.bars-up .bars,
-  body.bars-up .crossbar { transform: translateY(-115%); }
-
-  body.walk .room { transform: scale(3.4); }
-  body.walk .timer, body.walk .glow, body.walk .cells { opacity: 0; }
-  body.walk .bars, body.walk .crossbar { display: none; }
-  body.walk .vignette { animation: bob 1.1s ease-in-out infinite; }
-  @keyframes bob { 50% { transform: translateY(-1.5%); } }
-
-  body.open .door { transform: rotateY(-105deg); }
-
   .black {
-    position: absolute; inset: 0; background: #000;
+    position: absolute; inset: 0; background: #000; z-index: 30;
     opacity: 0; pointer-events: none;
     transition: opacity 2s;
   }
   body.dark .black { opacity: 1; }
-  body.dark .vignette { animation: none; }
-  body.dark .ctrl { display: none; }
+  body.dark .ctrl, body.dark .help { display: none; }
 
   .credits {
-    position: absolute; inset: 0;
+    position: absolute; inset: 0; z-index: 31;
     display: flex; align-items: center; justify-content: center;
     padding: 6vw;
     text-align: center;
@@ -296,7 +111,7 @@
     font-family: Georgia, "Times New Roman", serif;
     font-size: clamp(18px, 2.6vw, 34px);
     line-height: 1.6;
-    opacity: 0;
+    opacity: 0; pointer-events: none;
     transition: opacity 3s;
   }
   .credits p { max-width: 28em; }
@@ -305,6 +120,11 @@
 </style>
 </head>
 <body>
+
+  <canvas id="gl"></canvas>
+  <div class="vignette"></div>
+  <div class="noise"></div>
+  <div class="help" id="help" hidden>ťahaj myšou / prstom = rozhliadnutie · W A S D = pohyb</div>
 
   <!-- ===== LOBBY ===== -->
   <div class="lobby" id="lobby">
@@ -343,48 +163,12 @@
         <div class="link" id="link"></div>
         <button class="ghost" id="btnCopy">Kopírovať link</button>
         <div class="ok" id="copied" hidden>Skopírované ✓</div>
-        <div class="hint">Pošli link kamošom. Každý, kto ho otvorí, sa objaví v susednej cele a budete sa počuť. Odpočet aj koniec bežia všetkým naraz. Max. 8 hráčov.<br>
+        <div class="hint">Pošli link kamošom. Každý, kto ho otvorí, sa objaví ako postava v cele oproti a budete sa počuť. Odpočet aj koniec bežia všetkým naraz. Max. 8 hráčov.<br>
         Ak majú súbor u seba, stačí im vložiť kód: <b id="codeOnly"></b></div>
         <button id="btnEnter">Vstúpiť do cely</button>
       </div>
     </div>
   </div>
-
-  <!-- ===== HRA ===== -->
-  <div class="room">
-    <div class="ceiling"></div>
-    <div class="wall"></div>
-    <div class="side left"></div>
-    <div class="side right"></div>
-    <div class="floor"></div>
-    <div class="glow"></div>
-
-    <div class="timer" id="timer">02:00:00</div>
-
-    <div class="cells" id="cells">
-      <div class="col" id="colL"></div>
-      <div class="col" id="colR"></div>
-    </div>
-
-    <div class="doorway">
-      <div class="door">
-        <div class="rivets">
-          <i style="left:6%;top:4%"></i><i style="right:6%;top:4%"></i>
-          <i style="left:6%;top:40%"></i><i style="right:6%;top:40%"></i>
-          <i style="left:6%;top:75%"></i><i style="right:6%;top:75%"></i>
-          <i style="left:6%;bottom:3%"></i><i style="right:6%;bottom:3%"></i>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <div class="crossbar top"></div>
-  <div class="crossbar bottom"></div>
-  <div class="bars">
-    <span></span><span></span><span></span><span></span><span></span><span></span><span></span>
-  </div>
-  <div class="vignette"></div>
-  <div class="noise"></div>
 
   <div class="ctrl" id="ctrl" hidden>
     <button id="mic" title="Mikrofón">🎤</button>
@@ -534,7 +318,8 @@
       tone("sawtooth", 180, 2.2, 0.05, 0, 320);
       noise(2.2, 0.08, "bandpass", 420, 0, 0.4);
       noise(0.35, 0.5, "lowpass", 120, 2.3, 0.01);
-    }
+    },
+    step()     { noise(0.12, 0.25, "lowpass", 300, 0, 0.01); }
   };
   $("mute").onclick = () => {
     muted = !muted;
@@ -546,7 +331,7 @@
   // mikrofón -> efekt -> MediaStreamDestination; do siete ide už zmenený hlas.
   let voiceIn = null, voiceOut = null, voiceFx = null, rawStream = null;
 
-  function shaper(ctx, amount) { // jemné skreslenie
+  function shaper(ctx, amount) {
     const ws = ctx.createWaveShaper(), n = 256, c = new Float32Array(n);
     for (let i = 0; i < n; i++) { const x = i * 2 / n - 1; c[i] = (Math.PI + amount) * x / (Math.PI + amount * Math.abs(x)); }
     ws.curve = c; return ws;
@@ -644,11 +429,293 @@
   }
   $("voice").onchange = () => buildVoice($("voice").value);
 
-  // ---------- sieť: kamera + hlas medzi hráčmi (PeerJS / WebRTC) ----------
+  // ---------- 3D SCÉNA (Three.js) ----------
+  // Súradnice: ja stojím v cele z∈[0,4] (mreže na z=0), chodba z∈[-4,0],
+  // oproti je stena s časovačom a dverami (x∈[-2,2]) a po stranách cely hráčov.
+  const CELL_W = 3.2, CELL_D = 4, CELL_H = 3.2, CORR = 4;
+  const BARS_Z = 0;                 // moje mreže
+  const ACROSS_Z = -CORR;           // mreže ciel oproti
+  function slotX(n) { const k = Math.ceil(n / 2); return (n % 2 ? -1 : 1) * (2 + CELL_W / 2 + (k - 1) * CELL_W); }
+
+  let renderer, scene, camera, clock, myBars, doorPivot, timerTex, timerCanvas, redLight;
+  const avatars = new Map(); // slot -> { group, target:{x,z,rot,pitch}, talking }
+  const look = { yaw: 0, pitch: 0 };
+  const me3 = { x: 0, z: 2.2 };
+  const keys = {};
+  let three = false;
+
+  function noiseTexture(base, spread, size = 256, rep = 2) {
+    const c = document.createElement("canvas"); c.width = c.height = size;
+    const g = c.getContext("2d"), img = g.createImageData(size, size), d = img.data;
+    for (let i = 0; i < d.length; i += 4) {
+      const v = base + (Math.random() - 0.5) * spread;
+      d[i] = v; d[i + 1] = v * 0.98; d[i + 2] = v * 0.93; d[i + 3] = 255;
+    }
+    g.putImageData(img, 0, 0);
+    for (let i = 0; i < 12; i++) { // pár tmavých fľakov
+      const r = 20 + Math.random() * 60;
+      g.fillStyle = "rgba(0,0,0,.12)"; g.beginPath(); g.arc(Math.random() * size, Math.random() * size, r, 0, 7); g.fill();
+    }
+    const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(rep, rep);
+    return t;
+  }
+
+  function box(w, h, d, mat, x, y, z) {
+    const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat); m.position.set(x, y, z); scene.add(m); return m;
+  }
+  function barsGroup(width, height, z, xc) {
+    const g = new THREE.Group();
+    const mat = new THREE.MeshStandardMaterial({ color: 0x3a3a3a, metalness: 0.9, roughness: 0.35 });
+    const n = Math.round(width / 0.32);
+    const geo = new THREE.CylinderGeometry(0.03, 0.03, height, 10);
+    for (let i = 0; i <= n; i++) {
+      const b = new THREE.Mesh(geo, mat); b.position.set(-width / 2 + i * width / n, height / 2, 0); g.add(b);
+    }
+    const hg = new THREE.BoxGeometry(width + 0.1, 0.07, 0.07);
+    [0.35, height / 2, height - 0.35].forEach(y => { const h = new THREE.Mesh(hg, mat); h.position.set(0, y, 0); g.add(h); });
+    g.position.set(xc, 0, z);
+    scene.add(g);
+    return g;
+  }
+  function cellWalls(xc, zFront, zBack, wallMat, floorMat) { // cela otvorená smerom k zFront
+    const zc = (zFront + zBack) / 2, d = Math.abs(zBack - zFront);
+    const f = new THREE.Mesh(new THREE.PlaneGeometry(CELL_W, d), floorMat); f.rotation.x = -Math.PI / 2; f.position.set(xc, 0, zc); scene.add(f);
+    const c = new THREE.Mesh(new THREE.PlaneGeometry(CELL_W, d), wallMat); c.rotation.x = Math.PI / 2; c.position.set(xc, CELL_H, zc); scene.add(c);
+    box(0.1, CELL_H, d, wallMat, xc - CELL_W / 2, CELL_H / 2, zc);
+    box(0.1, CELL_H, d, wallMat, xc + CELL_W / 2, CELL_H / 2, zc);
+    box(CELL_W, CELL_H, 0.1, wallMat, xc, CELL_H / 2, zBack);
+    // pričňa
+    const bed = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.12, 1.9), new THREE.MeshStandardMaterial({ color: 0x4a4238, roughness: 0.9 }));
+    bed.position.set(xc + CELL_W / 2 - 0.5, 0.5, zc + (zBack > zFront ? 0.6 : -0.6)); scene.add(bed);
+    [[-0.35, -0.85], [0.35, -0.85], [-0.35, 0.85], [0.35, 0.85]].forEach(([dx, dz]) => box(0.05, 0.5, 0.05, wallMat, bed.position.x + dx, 0.25, bed.position.z + dz));
+  }
+
+  function makeTimerTexture() {
+    timerCanvas = document.createElement("canvas"); timerCanvas.width = 1024; timerCanvas.height = 256;
+    timerTex = new THREE.CanvasTexture(timerCanvas);
+    drawTimer("02:00:00");
+    return timerTex;
+  }
+  function drawTimer(text, blinkOff = false) {
+    if (!timerCanvas) return;
+    const g = timerCanvas.getContext("2d");
+    g.fillStyle = "#0a0000"; g.fillRect(0, 0, 1024, 256);
+    g.strokeStyle = "#2a1a1a"; g.lineWidth = 12; g.strokeRect(6, 6, 1012, 244);
+    if (!blinkOff) {
+      g.font = "bold 190px 'Courier New', monospace"; g.textAlign = "center"; g.textBaseline = "middle";
+      g.shadowColor = "#f00"; g.shadowBlur = 40; g.fillStyle = "#ff1a1a";
+      g.fillText(text, 512, 138);
+      g.shadowBlur = 0;
+    }
+    timerTex.needsUpdate = true;
+  }
+  function nameSprite(text, talking = false) {
+    const c = document.createElement("canvas"); c.width = 512; c.height = 128;
+    const g = c.getContext("2d");
+    g.font = "bold 64px 'Courier New', monospace"; g.textAlign = "center"; g.textBaseline = "middle";
+    g.fillStyle = "rgba(0,0,0,.55)"; g.fillRect(0, 0, 512, 128);
+    g.fillStyle = talking ? "#ffd27a" : "#d8d0bc"; g.fillText(text.toUpperCase(), 256, 64);
+    const t = new THREE.CanvasTexture(c);
+    const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: t, transparent: true, depthTest: false }));
+    s.scale.set(1.6, 0.4, 1);
+    return s;
+  }
+  function makeAvatar(name) {
+    const g = new THREE.Group();
+    const suit = new THREE.MeshStandardMaterial({ color: 0xd8641c, roughness: 0.85 });
+    const skin = new THREE.MeshStandardMaterial({ color: 0xc9a07a, roughness: 0.7 });
+    const dark = new THREE.MeshStandardMaterial({ color: 0x1c1c1c, roughness: 0.9 });
+    const legL = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.8, 0.22), suit); legL.position.set(-0.13, 0.4, 0);
+    const legR = legL.clone(); legR.position.x = 0.13;
+    const torso = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.7, 0.28), suit); torso.position.set(0, 1.15, 0);
+    const armL = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.65, 0.16), suit); armL.position.set(-0.34, 1.12, 0);
+    const armR = armL.clone(); armR.position.x = 0.34;
+    const head = new THREE.Group();
+    const skull = new THREE.Mesh(new THREE.SphereGeometry(0.19, 18, 14), skin); head.add(skull);
+    const hair = new THREE.Mesh(new THREE.SphereGeometry(0.195, 18, 8, 0, Math.PI * 2, 0, 1.1), dark); hair.position.y = 0.03; head.add(hair);
+    const eyeG = new THREE.SphereGeometry(0.025, 8, 8);
+    [[-0.07, 0.03, 0.16], [0.07, 0.03, 0.16]].forEach(([x, y, z]) => { const e = new THREE.Mesh(eyeG, dark); e.position.set(x, y, z); head.add(e); });
+    head.position.set(0, 1.7, 0);
+    const label = nameSprite(name); label.position.set(0, 2.15, 0);
+    g.add(legL, legR, torso, armL, armR, head, label);
+    g.userData = { head, label, legL, legR, armL, armR, name };
+    return g;
+  }
+
+  function initThree() {
+    if (typeof THREE === "undefined") return false;
+    renderer = new THREE.WebGLRenderer({ canvas: $("gl"), antialias: true, powerPreference: "high-performance" });
+    renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+    renderer.setSize(innerWidth, innerHeight);
+    renderer.outputEncoding = THREE.sRGBEncoding;
+    scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x020202);
+    scene.fog = new THREE.Fog(0x020202, 6, 26);
+    camera = new THREE.PerspectiveCamera(72, innerWidth / innerHeight, 0.05, 60);
+    clock = new THREE.Clock();
+
+    const wallTex = noiseTexture(74, 40, 256, 3), floorTex = noiseTexture(42, 30, 256, 4);
+    const wallMat = new THREE.MeshStandardMaterial({ map: wallTex, color: 0x9a968c, roughness: 0.95 });
+    const floorMat = new THREE.MeshStandardMaterial({ map: floorTex, color: 0x7a7570, roughness: 1 });
+    const corrW = 2 * (2 + CELL_W * 4) + 4;
+
+    // moja cela
+    cellWalls(0, BARS_Z, CELL_D, wallMat, floorMat);
+    myBars = barsGroup(CELL_W, CELL_H, BARS_Z, 0);
+    // múr po oboch stranách mojich mreží až po koniec chodby
+    const sideW = corrW / 2 - CELL_W / 2;
+    box(sideW, CELL_H, 0.12, wallMat, -(CELL_W / 2 + sideW / 2), CELL_H / 2, BARS_Z);
+    box(sideW, CELL_H, 0.12, wallMat, (CELL_W / 2 + sideW / 2), CELL_H / 2, BARS_Z);
+
+    // chodba
+    const cf = new THREE.Mesh(new THREE.PlaneGeometry(corrW, CORR), floorMat); cf.rotation.x = -Math.PI / 2; cf.position.set(0, 0, -CORR / 2); scene.add(cf);
+    const cc = new THREE.Mesh(new THREE.PlaneGeometry(corrW, CORR), wallMat); cc.rotation.x = Math.PI / 2; cc.position.set(0, CELL_H, -CORR / 2); scene.add(cc);
+    box(0.1, CELL_H, CORR + CELL_D * 2, wallMat, -corrW / 2, CELL_H / 2, -CORR / 2);
+    box(0.1, CELL_H, CORR + CELL_D * 2, wallMat, corrW / 2, CELL_H / 2, -CORR / 2);
+
+    // stena oproti: časovač + dvere (x∈[-2,2])
+    box(4, CELL_H, 0.12, wallMat, 0, CELL_H / 2, ACROSS_Z - 0.06);
+    const timerMesh = new THREE.Mesh(new THREE.PlaneGeometry(3.2, 0.8), new THREE.MeshBasicMaterial({ map: makeTimerTexture() }));
+    timerMesh.position.set(0, 2.6, ACROSS_Z + 0.01); scene.add(timerMesh);
+    redLight = new THREE.PointLight(0xff2020, 1.6, 9, 2); redLight.position.set(0, 2.6, ACROSS_Z + 0.8); scene.add(redLight);
+    // dvere s pántom vľavo
+    doorPivot = new THREE.Group(); doorPivot.position.set(-0.6, 0, ACROSS_Z + 0.02); scene.add(doorPivot);
+    const doorMat = new THREE.MeshStandardMaterial({ color: 0x6a6c70, metalness: 0.6, roughness: 0.45 });
+    const door = new THREE.Mesh(new THREE.BoxGeometry(1.2, 2.3, 0.08), doorMat); door.position.set(0.6, 1.15, 0); doorPivot.add(door);
+    const frame = new THREE.Mesh(new THREE.BoxGeometry(1.36, 2.42, 0.16), new THREE.MeshStandardMaterial({ color: 0x1c1c1c })); frame.position.set(0, 1.21, ACROSS_Z - 0.02); scene.add(frame);
+    const win = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.26, 0.1), new THREE.MeshStandardMaterial({ color: 0x050505 })); win.position.set(0.6, 1.85, 0); doorPivot.add(win);
+    const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.22, 8), new THREE.MeshStandardMaterial({ color: 0xaaaaaa, metalness: 0.9, roughness: 0.3 })); handle.position.set(1.05, 1.15, 0.07); doorPivot.add(handle);
+    // za dverami tma
+    box(1.4, 2.5, 0.05, new THREE.MeshBasicMaterial({ color: 0x000000 }), 0, 1.25, ACROSS_Z - 0.3);
+
+    // cely oproti (miesta 1..8)
+    for (let n = 1; n <= MAX; n++) {
+      const xc = slotX(n);
+      cellWalls(xc, ACROSS_Z, ACROSS_Z - CELL_D, wallMat, floorMat);
+      barsGroup(CELL_W, CELL_H, ACROSS_Z, xc);
+      const lamp = new THREE.PointLight(0xffd9a0, 0.35, 6, 2); lamp.position.set(xc, CELL_H - 0.2, ACROSS_Z - 2); scene.add(lamp);
+    }
+    // svetlá chodby
+    for (let x = -12; x <= 12; x += 6) {
+      const l = new THREE.PointLight(0xffe2b0, 0.5, 9, 2); l.position.set(x, CELL_H - 0.1, -CORR / 2); scene.add(l);
+      const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.06, 8, 8), new THREE.MeshBasicMaterial({ color: 0xffe6b0 })); bulb.position.copy(l.position); scene.add(bulb);
+    }
+    const myLamp = new THREE.PointLight(0xffd9a0, 0.45, 6, 2); myLamp.position.set(0, CELL_H - 0.2, 2); scene.add(myLamp);
+    scene.add(new THREE.AmbientLight(0x404040, 0.35));
+
+    camera.position.set(me3.x, 1.6, me3.z);
+    three = true;
+    window.addEventListener("resize", () => { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); });
+    setupControls();
+    renderer.setAnimationLoop(frame3d);
+    return true;
+  }
+
+  // ovládanie pohľadu: myš (pointer lock) / dotyk; pohyb WASD
+  function setupControls() {
+    const cv = $("gl");
+    let dragging = false, lx = 0, ly = 0, locked = false;
+    cv.addEventListener("mousedown", e => { dragging = true; lx = e.clientX; ly = e.clientY; if (cv.requestPointerLock) cv.requestPointerLock(); });
+    document.addEventListener("pointerlockchange", () => { locked = document.pointerLockElement === cv; });
+    document.addEventListener("mousemove", e => {
+      if (locked) { look.yaw -= e.movementX * 0.0022; look.pitch -= e.movementY * 0.0022; }
+      else if (dragging) { look.yaw -= (e.clientX - lx) * 0.004; look.pitch -= (e.clientY - ly) * 0.004; lx = e.clientX; ly = e.clientY; }
+      look.pitch = Math.max(-1.2, Math.min(1.2, look.pitch));
+    });
+    document.addEventListener("mouseup", () => dragging = false);
+    cv.addEventListener("touchstart", e => { const t = e.touches[0]; lx = t.clientX; ly = t.clientY; }, { passive: true });
+    cv.addEventListener("touchmove", e => {
+      const t = e.touches[0];
+      look.yaw -= (t.clientX - lx) * 0.005; look.pitch -= (t.clientY - ly) * 0.005;
+      look.pitch = Math.max(-1.2, Math.min(1.2, look.pitch));
+      lx = t.clientX; ly = t.clientY; e.preventDefault();
+    }, { passive: false });
+    document.addEventListener("keydown", e => keys[e.key.toLowerCase()] = true);
+    document.addEventListener("keyup", e => keys[e.key.toLowerCase()] = false);
+  }
+
+  let walkAnim = null, barsAnim = null, doorAnim = null, lastStep = 0;
+  function frame3d() {
+    const dt = Math.min(clock.getDelta(), 0.05), t = clock.elapsedTime;
+    // pohyb v cele
+    if (!walkAnim) {
+      const sp = 1.6 * dt;
+      const fx = -Math.sin(look.yaw), fz = -Math.cos(look.yaw), rx = Math.cos(look.yaw), rz = -Math.sin(look.yaw);
+      let mx = 0, mz = 0;
+      if (keys.w || keys.arrowup) { mx += fx; mz += fz; }
+      if (keys.s || keys.arrowdown) { mx -= fx; mz -= fz; }
+      if (keys.a || keys.arrowleft) { mx -= rx; mz -= rz; }
+      if (keys.d || keys.arrowright) { mx += rx; mz += rz; }
+      if (mx || mz) {
+        const l = Math.hypot(mx, mz); me3.x += mx / l * sp; me3.z += mz / l * sp;
+        me3.x = Math.max(-CELL_W / 2 + 0.35, Math.min(CELL_W / 2 - 0.35, me3.x));
+        me3.z = Math.max(BARS_Z + 0.4, Math.min(CELL_D - 0.4, me3.z));
+        if (t - lastStep > 0.45) { lastStep = t; sfx.step(); }
+        camera.position.y = 1.6 + Math.sin(t * 9) * 0.025;
+      }
+      camera.position.x = me3.x; camera.position.z = me3.z;
+    }
+    camera.rotation.set(0, 0, 0); camera.rotateY(look.yaw); camera.rotateX(look.pitch);
+
+    // blikanie červeného svetla
+    if (redLight) redLight.intensity = 1.4 + Math.sin(t * 7) * 0.15 + (Math.random() < 0.02 ? -0.8 : 0);
+
+    // koniec: mreže hore
+    if (barsAnim) { const k = Math.min(1, (performance.now() - barsAnim) / 5000); myBars.position.y = k * k * (CELL_H + 0.2); }
+    // koniec: chôdza k dverám
+    if (walkAnim) {
+      const k = Math.min(1, (performance.now() - walkAnim) / 6000), e = k * k * (3 - 2 * k);
+      camera.position.set(me3.x * (1 - e), 1.6 + Math.sin(t * 8) * 0.03 * (1 - k), me3.z + (ACROSS_Z + 1.0 - me3.z) * e);
+      look.yaw += (0 - look.yaw) * Math.min(1, dt * 2); look.pitch += (0 - look.pitch) * Math.min(1, dt * 2);
+    }
+    if (doorAnim) { const k = Math.min(1, (performance.now() - doorAnim) / 2500); doorPivot.rotation.y = -k * k * 1.9; }
+
+    // postavy
+    avatars.forEach(a => {
+      const u = a.group.userData, tg = a.target;
+      a.group.position.x += (tg.x - a.group.position.x) * Math.min(1, dt * 8);
+      a.group.position.z += (tg.z - a.group.position.z) * Math.min(1, dt * 8);
+      let dy = tg.rot - a.group.rotation.y; dy = Math.atan2(Math.sin(dy), Math.cos(dy));
+      a.group.rotation.y += dy * Math.min(1, dt * 8);
+      u.head.rotation.x = tg.pitch * 0.6;
+      const moving = Math.hypot(tg.x - a.group.position.x, tg.z - a.group.position.z) > 0.03;
+      const sw = moving ? Math.sin(t * 9) * 0.5 : 0;
+      u.legL.rotation.x = sw; u.legR.rotation.x = -sw; u.armL.rotation.x = -sw; u.armR.rotation.x = sw;
+      u.head.position.y = 1.7 + Math.sin(t * 1.6 + a.slot) * 0.01;
+      if (a.talking !== a.shownTalking) { a.shownTalking = a.talking; const old = u.label; const nl = nameSprite(u.name, a.talking); nl.position.copy(old.position); a.group.remove(old); a.group.add(nl); u.label = nl; }
+    });
+    renderer.render(scene, camera);
+  }
+
+  // avatar hráča na mieste n (v cele oproti), pozícia zrkadlená cez chodbu
+  function ensureAvatar(e) {
+    if (avatars.has(e.slot)) return avatars.get(e.slot);
+    const g = makeAvatar(e.name || "?");
+    const xc = slotX(e.slot);
+    g.position.set(xc, 0, ACROSS_Z - 2.2);
+    scene.add(g);
+    const a = { slot: e.slot, group: g, target: { x: xc, z: ACROSS_Z - 2.2, rot: 0, pitch: 0 }, talking: false, shownTalking: false };
+    avatars.set(e.slot, a);
+    return a;
+  }
+  function renameAvatar(e) {
+    const a = avatars.get(e.slot); if (!a) return;
+    a.group.userData.name = e.name; a.shownTalking = !a.talking; // vynúti prekreslenie menovky
+  }
+  function moveAvatar(slot, p) { // p = [x, z, yaw, pitch] v súradniciach jeho cely
+    const a = avatars.get(slot); if (!a) return;
+    a.target.x = slotX(slot) + p[0];
+    a.target.z = ACROSS_Z - p[1];
+    a.target.rot = -p[2];
+    a.target.pitch = p[3] || 0;
+  }
+  function removeAvatar(slot) { const a = avatars.get(slot); if (a) { scene.remove(a.group); avatars.delete(slot); } }
+
+  // ---------- sieť: hlas + pozície medzi hráčmi (PeerJS / WebRTC) ----------
   // Každý hráč si vezme prvé voľné miesto 1..MAX v miestnosti a zavolá všetky
-  // ostatné miesta. Kto tam je, odpovie svojím videom a hlasom. Bez servera.
+  // ostatné miesta. Kto tam je, odpovie svojím hlasom. Bez servera.
   let peer = null, mySlot = 0, localStream = null;
-  const peers = new Map(); // slot -> { slot, name, stream, tile, conn, call }
+  const peers = new Map(); // slot -> { slot, name, stream, conns, call, audio, talkTimer, present }
 
   function setStatus(t) { $("status").textContent = t; }
   function slotId(n) { return "cela-" + game.room + "-" + n; }
@@ -672,26 +739,32 @@
     return s;
   }
 
-  function makeTile(e, isMe) {
-    const t = document.createElement("div");
-    t.className = "cell" + (isMe ? " me" : "");
-    t.innerHTML = '<audio autoplay playsinline' + (isMe ? ' muted' : '') + '></audio><div class="avatar"></div><div class="cellbars"></div><div class="plate"></div>';
-    (e.slot % 2 ? $("colL") : $("colR")).appendChild(t);
-    e.tile = t;
-    return t;
+  function entry(slot) {
+    if (!peers.has(slot)) peers.set(slot, { slot, name: "", stream: null, conns: [], call: null, audio: null, talkTimer: null, present: false });
+    return peers.get(slot);
   }
-  function updateTile(e) {
-    if (!e.tile) { if (e.name || e.stream) makeTile(e, e.slot === mySlot); else return; }
-    const a = e.tile.querySelector("audio"), av = e.tile.querySelector(".avatar");
-    e.tile.querySelector(".plate").textContent = (e.name || "…") + (e.slot === mySlot ? " (ty)" : "");
-    av.textContent = (e.name || "?").slice(0, 1).toUpperCase();
-    if (e.stream && a.srcObject !== e.stream) {
-      a.srcObject = e.stream; a.play().catch(() => {});
-      watchTalking(e);
-    }
+  function present(e) { // hráč je skutočne tu -> postava
+    if (!e.present) { e.present = true; if (three) ensureAvatar(e); countStatus(); }
   }
-  // rozsvieti okienko, keď hráč hovorí
-  function watchTalking(e) {
+  function removePeer(slot) {
+    const e = peers.get(slot); if (!e) return;
+    try { e.call && e.call.close(); } catch {}
+    e.conns.forEach(c => { try { c.close(); } catch {} });
+    e.talkTimer && clearInterval(e.talkTimer);
+    if (e.audio) { e.audio.pause(); e.audio.srcObject = null; e.audio.remove(); }
+    removeAvatar(slot);
+    peers.delete(slot);
+    countStatus();
+  }
+  function countStatus() {
+    const n = [...peers.values()].filter(e => e.present).length + 1;
+    setStatus(n === 1 ? "si tu sám, čakám na kamošov" : "v celách: " + n);
+  }
+  function attachAudio(e) {
+    if (!e.audio) { e.audio = document.createElement("audio"); e.audio.autoplay = true; e.audio.playsInline = true; document.body.appendChild(e.audio); }
+    if (e.audio.srcObject !== e.stream) { e.audio.srcObject = e.stream; e.audio.play().catch(() => {}); watchTalking(e); }
+  }
+  function watchTalking(e) { // menovka zosvetlie, keď hráč hovorí
     try {
       const ctx = audio(); if (!ctx) return;
       const src = ctx.createMediaStreamSource(e.stream);
@@ -699,45 +772,30 @@
       const buf = new Uint8Array(an.frequencyBinCount);
       e.talkTimer && clearInterval(e.talkTimer);
       e.talkTimer = setInterval(() => {
-        if (!e.tile) { clearInterval(e.talkTimer); return; }
         an.getByteTimeDomainData(buf);
         let sum = 0; for (let i = 0; i < buf.length; i++) { const d = (buf[i] - 128) / 128; sum += d * d; }
-        const rms = Math.sqrt(sum / buf.length);
-        e.tile.classList.toggle("talking", rms > 0.04);
+        const a = avatars.get(e.slot); if (a) a.talking = Math.sqrt(sum / buf.length) > 0.04;
       }, 80);
     } catch {}
-  }
-  function entry(slot) {
-    if (!peers.has(slot)) peers.set(slot, { slot, name: "", stream: null, tile: null, conn: null, call: null });
-    return peers.get(slot);
-  }
-  function removePeer(slot) {
-    const e = peers.get(slot); if (!e) return;
-    try { e.call && e.call.close(); } catch {}
-    try { e.conn && e.conn.close(); } catch {}
-    e.talkTimer && clearInterval(e.talkTimer);
-    e.tile && e.tile.remove();
-    peers.delete(slot);
-    countStatus();
-  }
-  function countStatus() {
-    const n = [...peers.values()].filter(e => e.tile).length + 1;
-    setStatus(n === 1 ? "si tu sám, čakám na kamošov" : "v celách: " + n);
   }
 
   function handleConn(conn) {
     const slot = slotFromId(conn.peer); if (!slot || slot === mySlot) return;
-    const e = entry(slot); e.conn = conn;
-    conn.on("open", () => { try { conn.send({ name: myName }); } catch {} });
-    conn.on("data", d => { if (d && d.name) { e.name = String(d.name).slice(0, 16); updateTile(e); countStatus(); } });
-    conn.on("close", () => removePeer(slot));
+    const e = entry(slot); e.conns.push(conn);
+    conn.on("open", () => { present(e); try { conn.send({ name: myName }); } catch {} });
+    conn.on("data", d => {
+      if (!d) return;
+      if (d.name) { e.name = String(d.name).slice(0, 16); present(e); renameAvatar(e); countStatus(); }
+      if (d.p) { present(e); moveAvatar(slot, d.p); }
+    });
+    conn.on("close", () => { e.conns = e.conns.filter(c => c !== conn); if (!e.conns.length) removePeer(slot); });
     conn.on("error", () => {});
   }
   function handleCall(call, incoming) {
     const slot = slotFromId(call.peer); if (!slot || slot === mySlot) return;
     const e = entry(slot); e.call = call;
-    if (incoming && call.metadata && call.metadata.name && !e.name) { e.name = String(call.metadata.name).slice(0, 16); updateTile(e); }
-    call.on("stream", s => { e.stream = s; updateTile(e); countStatus(); s.onaddtrack = s.onremovetrack = () => updateTile(e); });
+    if (incoming && call.metadata && call.metadata.name && !e.name) { e.name = String(call.metadata.name).slice(0, 16); present(e); renameAvatar(e); }
+    call.on("stream", s => { e.stream = s; present(e); attachAudio(e); });
     call.on("close", () => removePeer(slot));
     call.on("error", () => {});
   }
@@ -755,7 +813,6 @@
     const p = new Peer(slotId(slot));
     p.on("open", () => {
       peer = p; mySlot = slot;
-      makeMeTile();
       countStatus();
       for (let n = 1; n <= MAX; n++) if (n !== slot) dial(n);
     });
@@ -764,7 +821,7 @@
       if (t === "unavailable-id") { try { p.destroy(); } catch {} connectNet(slot + 1); }
       else if (t === "peer-unavailable") { // na tom mieste nikto nie je
         const m = String(err.message || "").match(/cela-[a-z0-9]+-(\d+)/);
-        if (m) { const e = peers.get(parseInt(m[1], 10)); if (e && !e.tile) removePeer(e.slot); }
+        if (m) { const e = peers.get(parseInt(m[1], 10)); if (e && !e.present) removePeer(e.slot); }
       }
       else if (!peer) { setStatus("spojenie zlyhalo: " + (t || "chyba")); }
     });
@@ -774,47 +831,50 @@
   }
   window.addEventListener("beforeunload", () => { try { peer && peer.destroy(); } catch {} });
 
-  // mikrofón / kamera (vypína sa surová stopa, takže stíchne aj zmenený hlas)
-  let me = null;
+  // posielanie vlastnej pozície a pohľadu (10x za sekundu, len ak sa zmenila)
+  let lastSent = "";
+  setInterval(() => {
+    if (!peer) return;
+    const p = [+me3.x.toFixed(2), +me3.z.toFixed(2), +look.yaw.toFixed(2), +look.pitch.toFixed(2)];
+    const key = p.join(",");
+    if (key === lastSent) return;
+    lastSent = key;
+    peers.forEach(e => e.conns.forEach(c => { if (c.open) { try { c.send({ p }); } catch {} } }));
+  }, 100);
+
+  // mikrofón (vypína sa surová stopa, takže stíchne aj zmenený hlas)
   $("mic").onclick = () => {
     if (!rawStream) return;
     const tracks = rawStream.getAudioTracks(); if (!tracks.length) return;
     const on = !tracks[0].enabled; tracks.forEach(t => t.enabled = on);
     $("mic").classList.toggle("off", !on); $("mic").textContent = on ? "🎤" : "🔇";
-    if (me && me.tile) me.tile.classList.toggle("muted", !on);
   };
 
   // ---------- hra ----------
-  const el = $("timer");
   let iv, ended = false, lastLeft = null;
-
   function pad(n) { return String(n).padStart(2, "0"); }
 
   async function startGame() {
     readName();
     lobby.hidden = true;
     $("ctrl").hidden = false;
+    $("help").hidden = false;
+    setTimeout(() => $("help").style.opacity = 0, 9000);
     audio();
+    if (!three) initThree();
     const passed = (Date.now() - game.end) / 1000;
     if (passed > 25) { // koniec už dávno prebehol -> rovno text
-      document.body.classList.add("instant", "bars-up", "walk", "open", "dark", "show-credits");
-      el.textContent = "00:00:00";
+      document.body.classList.add("instant", "dark", "show-credits");
       return;
     }
     tick();
     iv = setInterval(tick, 250);
 
-    // kamera + hlas
     rawStream = await getMedia();
     if (!rawStream.getAudioTracks().length) { $("mic").classList.add("off"); }
     localStream = processedStream(rawStream); // do siete ide hlas po efekte
     setStatus("pripájam…");
     connectNet(1);
-  }
-  function makeMeTile() { // vlastná dlaždica po pridelení miesta (vieme stranu)
-    me = { slot: mySlot, name: myName, stream: rawStream, tile: null };
-    makeTile(me, true);
-    updateTile(me);
   }
 
   function tick() {
@@ -826,9 +886,9 @@
     const h = Math.floor(left / 3600);
     const m = Math.floor((left % 3600) / 60);
     const s = left % 60;
-    el.textContent = `${pad(h)}:${pad(m)}:${pad(s)}`;
     if (left !== lastLeft) {
       lastLeft = left;
+      drawTimer(`${pad(h)}:${pad(m)}:${pad(s)}`);
       if (left > 0) { left <= 10 ? sfx.beep() : sfx.tick(left % 2); }
     }
   }
@@ -837,14 +897,14 @@
     const b = document.body;
     // časy sú relatívne ku koncu, takže neskorší návštevník sa dobehne
     const late = Math.max(0, Date.now() - game.end);
-    const at = (ms, cls, snd) => setTimeout(() => { b.classList.add(cls); if (snd) snd(); }, Math.max(0, ms - late));
-    el.classList.add("done");
+    const at = (ms, fn) => setTimeout(fn, Math.max(0, ms - late));
     if (late < 1500) sfx.alarm();
-    at(2000,  "bars-up", sfx.rumble); // mreže hore (5 s)
-    at(7500,  "walk");                // chôdza k dverám (6 s)
-    at(13500, "open", sfx.creak);     // otvorenie dverí (2.5 s)
-    at(16000, "dark");                // tma
-    at(18500, "show-credits");        // text
+    const blink = setInterval(() => drawTimer("00:00:00", Math.floor(performance.now() / 250) % 2 === 0), 120);
+    at(2000,  () => { barsAnim = performance.now(); sfx.rumble(); });    // mreže hore (5 s)
+    at(7500,  () => { walkAnim = performance.now(); });                  // chôdza k dverám (6 s)
+    at(13500, () => { doorAnim = performance.now(); sfx.creak(); });     // otvorenie dverí (2.5 s)
+    at(16000, () => { b.classList.add("dark"); clearInterval(blink); }); // tma
+    at(18500, () => b.classList.add("show-credits"));                   // text
   }
 </script>
 </body>
